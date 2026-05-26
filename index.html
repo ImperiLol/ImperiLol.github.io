@@ -4,46 +4,27 @@
     <meta charset="UTF-8">
     <title>My Embedded Project</title>
     <style>
-        /* Fill the entire browser window and hide scrollbars */
-        html, body {
+        /* Reset default margins and padding on the body */
+        body {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #0d0d0d; /* Matches CMU's dark theme */
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            overflow: hidden; /* Prevents scrollbars from appearing */
+            background-color: #000; /* Optional: adds a background fallback color */
         }
 
-        /* Container that maintains the project's aspect ratio */
-        .game-container {
-            position: relative;
-            width: 410px;
-            height: 460px;
-        }
-
-        /* Scale the iframe up dynamically to fit any screen size */
+        /* Make the iframe fill the entire viewport */
         iframe {
-            width: 410px;
-            height: 460px;
-            border: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            /* Dynamically scales the project based on the smaller screen dimension */
-            transform: scale(calc(min(100vw / 410, 100vh / 460)));
-            transform-origin: center center;
+            display: block;
+            width: 100vw;  /* 100% of the viewport width */
+            height: 100vh; /* 100% of the viewport height */
+            border: none;  /* Removes the default iframe border */
         }
     </style>
 </head>
 <body>
 
-    <div class="game-container">
-        <!-- Your exact iframe line, styled to fit the full screen perfectly -->
-        <iframe src="https://academy.cs.cmu.edu/sharing/tealHorse218288/embed" allowfullscreen></iframe>
-    </div>
+    <!-- Fixed: Replaced cmu.edu with your working CS Academy embed URL -->
+    <iframe src="https://academy.cs.cmu.edu/sharing/tealHorse218288/embed" allowfullscreen></iframe>
 
 </body>
 </html>
