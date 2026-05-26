@@ -4,25 +4,27 @@
     <meta charset="UTF-8">
     <title>My Embedded Project</title>
     <style>
-        /* This centers the text alignment for the heading */
-        h1 {
-            text-align: center;
+        /* Reset default margins and padding on the body */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevents scrollbars from appearing */
+            background-color: #000; /* Optional: adds a background fallback color */
         }
 
-        /* This forces the iframe to act like a block element and centers it */
+        /* Make the iframe fill the entire viewport */
         iframe {
             display: block;
-            margin: 0 auto;
-            border: none; /* Optional: removes the default border around the iframe */
+            width: 100vw;  /* 100% of the viewport width */
+            height: 100vh; /* 100% of the viewport height */
+            border: none;  /* Removes the default iframe border */
         }
     </style>
 </head>
 <body>
 
-    <h1>Check out my CS Academy Project:</h1>
-    
-    <!-- Enriched and enlarged dimensions -->
-    <iframe width="800" height="850" src="https://academy.cs.cmu.edu/sharing/tealHorse218288/embed"></iframe>
+    <!-- Removed the h1 tag so the iframe can utilize 100% of the viewport space -->
+    <iframe src="https://cmu.edu" allowfullscreen></iframe>
 
 </body>
 </html>
