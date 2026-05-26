@@ -1,9 +1,314 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <title>Collatz Sandbox</title>
+    <!-- Load Brython and CMU Graphics Browser translation layer -->
+    <script type="text/javascript" src="https://jsdelivr.net"></script>
+    <script type="text/javascript" src="https://jsdelivr.net"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: sans-serif;
+        }
+        #canvas-container {
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+    </style>
 </head>
-<body>
+<body onload="brython()">
 
-<h1>Hello World!</h1>
+    <div id="canvas-container"></div>
 
+    <!-- Script block converting CMU graphics python framework seamlessly -->
+    <script type="text/python">
+from browser import window, document, alert
+
+# Mocking CMU Graphics basic framework inside HTML5 canvas using Brython
+class App:
+    def __init__(self):
+        self.NV = 0
+        self.PS = []
+        self.stepsPerSecond = 1
+        self.paused = False
+        self._interval = None
+
+    def getTextInput(self, prompt_text):
+        return window.prompt(prompt_text)
+
+app = App()
+
+class Shape:
+    def __init__(self, **kwargs):
+        self.visible = kwargs.get('visible', True)
+        self.fill = kwargs.get('fill', 'black')
+        self.border = kwargs.get('border', None)
+        self.size = kwargs.get('size', 12)
+
+class Rect(Shape):
+    def __init__(self, left, top, width, height, **kwargs):
+        super().__init__(**kwargs)
+        self.left = left
+        self.top = top
+        self.width = width
+        self.height = height
+    def draw(self, ctx):
+        if not self.visible: return
+        if self.fill:
+            ctx.fillStyle = self.fill
+            ctx.fillRect(self.left, self.top, self.width, self.height)
+        if self.border:
+            ctx.strokeStyle = self.border
+            ctx.lineWidth = 1
+            ctx.strokeRect(self.left, self.top, self.width, self.height)
+    def hits(self, x, y):
+        return self.left <= x <= self.left + self.width and self.top <= y <= self.top + self.height
+
+class Circle(Shape):
+    def __init__(self, centerX, centerY, radius, **kwargs):
+        super().__init__(**kwargs)
+        self.centerX = centerX
+        self.centerY = centerY
+        self.radius = radius
+    def draw(self, ctx):
+        if not self.visible: return
+        ctx.beginPath()
+        ctx.arc(self.centerX, self.centerY, self.radius, 0, 2 * window.Math.PI)
+        if self.fill:
+            ctx.fillStyle = self.fill
+            ctx.fill()
+        if self.border:
+            ctx.strokeStyle = self.border
+            ctx.lineWidth = 2
+            ctx.stroke()
+    def hits(self, x, y):
+        dist = window.Math.sqrt((x - self.centerX)**2 + (y - self.centerY)**2)
+        return dist <= self.radius
+
+class Line(Shape):
+    def __init__(self, x1, y1, x2, y2, **kwargs):
+        super().__init__(**kwargs)
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+        self.lineWidth = kwargs.get('lineWidth', 1)
+    def draw(self, ctx):
+        if not self.visible: return
+        ctx.beginPath()
+        ctx.moveTo(self.x1, self.y1)
+        ctx.lineTo(self.x2, self.y2)
+        ctx.strokeStyle = self.fill
+        ctx.lineWidth = self.lineWidth
+        ctx.stroke()
+
+class Label(Shape):
+    def __init__(self, value, centerX, centerY, **kwargs):
+        super().__init__(**kwargs)
+        self._value = value
+        self.centerX = centerX
+        self.centerY = centerY
+        self.bold = kwargs.get('bold', False)
+        self.font = kwargs.get('font', 'sans-serif')
+        self.left = None
+        self.right = None
+    @property
+    def value(self): return self._value
+    @value.setter
+    def value(self, val): self._value = val
+    def draw(self, ctx):
+        if not self.visible: return
+        weight = "bold" if self.bold else "normal"
+        ctx.font = f"{weight} {self.size}px {self.font}"
+        ctx.fillStyle = self.fill
+        ctx.textAlign = "center"
+        ctx.textBaseline = "middle"
+        
+        x = self.centerX
+        if self.left is not None:
+            ctx.textAlign = "left"
+            x = self.left
+        elif self.right is not None:
+            ctx.textAlign = "right"
+            x = self.right
+            
+        ctx.fillText(str(self._value), x, self.centerY)
+    def hits(self, x, y):
+        # Rough bounding box for label clicking actions
+        return self.centerX - 50 <= x <= self.centerX + 50 and self.centerY - 20 <= y <= self.centerY + 20
+
+class Group:
+    def __init__(self):
+        self.children = []
+        self._visible = True
+    def add(self, *args):
+        for arg in args:
+            if isinstance(arg, tuple) or isinstance(arg, list):
+                self.children.extend(arg)
+            else:
+                self.children.append(arg)
+    @property
+    def visible(self): return self._visible
+    @visible.setter
+    def visible(self, val):
+        self._visible = val
+        for child in self.children:
+            child.visible = val
+    def __iter__(self):
+        return iter(self.children)
+
+# Engine setup
+canvas = document.createElement('canvas')
+canvas.width = 400
+canvas.height = 400
+document['canvas-container'].appendChild(canvas)
+ctx = canvas.getContext('2d')
+
+# Your original declarations
+WL = Label("Welcome to the Collatz Sandbox!",200,50,bold=True,fill="green",size=20)
+ML = Label("Click the Button to Begin!",200,75,bold=True,fill="blue",size=15)
+B = Rect(100,100,200,200)
+button = Circle(200,200,75,fill="red",border="yellow")
+LW = Label("||||",50,200,size=75,bold=True)
+LE = Label("||||",350,200,size=75,bold=True)
+RW = Line(150,300,150,400,fill="red",lineWidth=4)
+GW = Line(250,300,250,400,fill="green",lineWidth=4)
+BW = Line(200,300,200,400,fill="blue",lineWidth=4)
+Bx = Rect(125,300,150,10,fill="silver")
+L1 = Label("Test.exe",297,255,size=40,fill='white')
+CPR = Label("(C)-CollatzSandbox.com LLCI ''Incorpated''",275,10,fill="white",size=10)
+
+base = Group()
+sst = Group()
+ss1 = Group()
+
+base.add(WL)
+base.add(ML)
+base.add(B)
+base.add(button,LW,LE,RW,GW,BW,Bx)
+
+LN = Label(0,35,25,size=30)
+CN = Label(0,200,75,size=80)
+CNL = Label("Current Number",200,125,size=25)
+SN = Label(0,200,275,size=80,fill="indigo")
+SNL = Label("Summit Number",200,325,size=25,fill="indigo")
+reset = Label("RESET",200,375,fill="red",size=25)
+reset.visible = False
+HS = Label(1,200,175,size=80,fill="white") # Set dynamically but preserving types
+HS.fill = "dodgerBlue"
+HSL = Label("Hailstone Number",200,225,size=25,fill="deepSkyBlue")
+DNA = Label("",200,350,size=12,font="monospace")
+
+sst.add(CN,HS,HSL,CNL,SN,SNL,DNA)
+sst.visible = False
+ss1.add(reset,LN,CPR)
+ss1.visible = False
+
+# All scene elements array for draw pipeline order
+all_elements = [WL, ML, B, button, LW, LE, RW, GW, BW, Bx, L1, CPR, LN, CN, CNL, SN, SNL, reset, HS, HSL, DNA]
+
+def Collatzfunction(n):
+    if n > 0: 
+        if n % 2 == 0:
+            n = n // 2
+            app.PS.append(0)
+        else:
+            n = (n * 3) + 1
+            app.PS.append(1)
+        CN.value = n
+        if CN.value > SN.value:
+            SN.value = CN.value
+        DNA.value = "".join(map(str, app.PS))
+        HS.value += 1
+
+def ApplyPulse(mg):
+    for obj in sst:
+        if obj.size > 30:
+            obj.centerX += mg
+        elif obj.size < 30:
+            obj.centerX += (mg / 2)
+
+def onMousePress(mouseX, mouseY):
+    if button.hits(mouseX, mouseY) and button.visible == True:
+        userInput = app.getTextInput("Your Number?")
+        if userInput != None:
+            if userInput.isdigit():
+                val = int(userInput)
+                if val > 0:
+                    app.NV = val
+                    LN.value = app.NV
+                    CN.value = app.NV
+                    SN.value = val
+                    HS.value = 1
+                    app.PS = []
+                    base.visible = False
+                    sst.visible = True
+                    ss1.visible = True
+                    LN.left = 0
+                    CPR.right = 400
+                    reset.visible = True
+    if reset.hits(mouseX, mouseY) and reset.visible == True:
+        base.visible = True
+        sst.visible = False
+        HS.value = 1
+        app.NV = 0
+        SN.value = 0
+        ss1.visible = False
+        DNA.value = ""
+        reset.visible = False
+
+def onStep():
+    if sst.visible == True:
+        if CN.value > 1:
+            if HS.value % 2 == 0: 
+                ApplyPulse(-12)
+            else:
+                ApplyPulse(12)
+            
+            Collatzfunction(CN.value)
+            
+            if CN.value % 2 == 0:
+                CN.fill = "red"
+                CNL.fill = "red"
+            elif CN.value % 2 != 0:
+                CN.fill = "seaGreen"
+                CNL.fill = "seaGreen"
+        else:
+            for obj in sst:
+                obj.centerX = 200
+                CN.fill = "orangeRed"
+                CNL.fill = "orangeRed"
+
+# Event Hooks
+def mouse_handler(evt):
+    rect = canvas.getBoundingClientRect()
+    x = evt.clientX - rect.left
+    y = evt.clientY - rect.top
+    onMousePress(x, y)
+
+canvas.bind("mousedown", mouse_handler)
+
+# Game/Render loops
+def render_loop():
+    ctx.clearRect(0, 0, 400, 400)
+    ctx.fillStyle = "white"
+    ctx.fillRect(0, 0, 400, 400)
+    for element in all_elements:
+        element.draw(ctx)
+
+def step_loop():
+    onStep()
+    render_loop()
+
+window.setInterval(step_loop, 1000) # 1 Step Per Second
+window.setInterval(render_loop, 16) # Render Loop 60fps
+    </script>
 </body>
 </html>
