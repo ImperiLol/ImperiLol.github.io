@@ -2,313 +2,286 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collatz Sandbox</title>
-    <!-- Load Brython and CMU Graphics Browser translation layer -->
-    <script type="text/javascript" src="https://jsdelivr.net"></script>
-    <script type="text/javascript" src="https://jsdelivr.net"></script>
-    
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #f0f0f0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            background: #222;
             font-family: sans-serif;
         }
-        #canvas-container {
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        canvas {
+            background: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 4px;
         }
     </style>
 </head>
-<body onload="brython()">
+<body>
 
-    <div id="canvas-container"></div>
+<canvas id="gameCanvas" width="400" height="400"></canvas>
 
-    <!-- Script block converting CMU graphics python framework seamlessly -->
-    <script type="text/python">
-from browser import window, document, alert
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-# Mocking CMU Graphics basic framework inside HTML5 canvas using Brython
-class App:
-    def __init__(self):
-        self.NV = 0
-        self.PS = []
-        self.stepsPerSecond = 1
-        self.paused = False
-        self._interval = None
+    // Emulate CMU Canvas configuration
+    const app = {
+        NV: 0,
+        PS: [],
+        stepsPerSecond: 30, // Default CMU speed until changed
+        paused: false
+    };
 
-    def getTextInput(self, prompt_text):
-        return window.prompt(prompt_text)
+    // --- SCENE GROUPS & OBJECTS ---
+    const base = { visible: true };
+    const sst = { visible: false };
+    const ss1 = { visible: false };
 
-app = App()
+    // Base Group Elements
+    const WL = { type: 'Label', value: "Welcome to the Collatz Sandbox!", x: 200, y: 50, bold: true, fill: "green", size: 20, align: 'center' };
+    const ML = { type: 'Label', value: "Click the Button to Begin!", x: 200, y: 75, bold: true, fill: "blue", size: 15, align: 'center' };
+    const B =  { type: 'Rect', x: 100, y: 100, w: 200, h: 200, fill: 'black' };
+    const button = { type: 'Circle', cx: 200, cy: 200, r: 75, fill: "red", border: "yellow", borderWidth: 3, visible: true };
+    const LW = { type: 'Label', value: "||||", x: 50, y: 200, size: 75, bold: true, fill: 'black', align: 'center' };
+    const LE = { type: 'Label', value: "||||", x: 350, y: 200, size: 75, bold: true, fill: 'black', align: 'center' };
+    const RW = { type: 'Line', x1: 150, y1: 300, x2: 150, y2: 400, fill: "red", lineWidth: 4 };
+    const GW = { type: 'Line', x1: 250, y1: 300, x2: 250, y2: 400, fill: "green", lineWidth: 4 };
+    const BW = { type: 'Line', x1: 200, y1: 300, x2: 200, y2: 400, fill: "blue", lineWidth: 4 };
+    const Bx = { type: 'Rect', x: 125, y: 300, w: 150, h: 10, fill: "silver" };
+    
+    // SST Group Elements
+    const CN =  { type: 'Label', value: 0, x: 200, y: 75, size: 80, fill: 'black', align: 'center' };
+    const CNL = { type: 'Label', value: "Current Number", x: 200, y: 125, size: 25, fill: 'black', align: 'center' };
+    const HS =  { type: 'Label', value: 1, x: 200, y: 175, size: 80, fill: "dodgerBlue", align: 'center' };
+    const HSL = { type: 'Label', value: "Hailstone Number", x: 200, y: 225, size: 25, fill: "deepSkyBlue", align: 'center' };
+    const SN =  { type: 'Label', value: 0, x: 200, y: 275, size: 80, fill: "indigo", align: 'center' };
+    const SNL = { type: 'Label', value: "Summit Number", x: 200, y: 325, size: 25, fill: "indigo", align: 'center' };
+    const DNA = { type: 'Label', value: "", x: 200, y: 350, size: 12, font: "monospace", fill: 'black', align: 'center' };
 
-class Shape:
-    def __init__(self, **kwargs):
-        self.visible = kwargs.get('visible', True)
-        self.fill = kwargs.get('fill', 'black')
-        self.border = kwargs.get('border', None)
-        self.size = kwargs.get('size', 12)
+    // SS1 Group Elements
+    const reset = { type: 'Label', value: "RESET", x: 200, y: 375, fill: "red", size: 25, visible: false, align: 'center' };
+    const LN =    { type: 'Label', value: 0, x: 35, y: 25, size: 30, fill: 'black', align: 'left' };
+    const CPR =   { type: 'Label', value: "(C)-CollatzSandbox.com LLCI ''Incorpated''", x: 275, y: 10, fill: "darkgray", size: 10, align: 'right' };
 
-class Rect(Shape):
-    def __init__(self, left, top, width, height, **kwargs):
-        super().__init__(**kwargs)
-        self.left = left
-        self.top = top
-        self.width = width
-        self.height = height
-    def draw(self, ctx):
-        if not self.visible: return
-        if self.fill:
-            ctx.fillStyle = self.fill
-            ctx.fillRect(self.left, self.top, self.width, self.height)
-        if self.border:
-            ctx.strokeStyle = self.border
-            ctx.lineWidth = 1
-            ctx.strokeRect(self.left, self.top, self.width, self.height)
-    def hits(self, x, y):
-        return self.left <= x <= self.left + self.width and self.top <= y <= self.top + self.height
+    // Compile targets for the custom ApplyPulse loops
+    const sstObjects = [CN, HS, HSL, CNL, SN, SNL, DNA];
 
-class Circle(Shape):
-    def __init__(self, centerX, centerY, radius, **kwargs):
-        super().__init__(**kwargs)
-        self.centerX = centerX
-        self.centerY = centerY
-        self.radius = radius
-    def draw(self, ctx):
-        if not self.visible: return
-        ctx.beginPath()
-        ctx.arc(self.centerX, self.centerY, self.radius, 0, 2 * window.Math.PI)
-        if self.fill:
-            ctx.fillStyle = self.fill
-            ctx.fill()
-        if self.border:
-            ctx.strokeStyle = self.border
-            ctx.lineWidth = 2
-            ctx.stroke()
-    def hits(self, x, y):
-        dist = window.Math.sqrt((x - self.centerX)**2 + (y - self.centerY)**2)
-        return dist <= self.radius
+    // --- GAME FUNCTIONS ---
 
-class Line(Shape):
-    def __init__(self, x1, y1, x2, y2, **kwargs):
-        super().__init__(**kwargs)
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
-        self.lineWidth = kwargs.get('lineWidth', 1)
-    def draw(self, ctx):
-        if not self.visible: return
-        ctx.beginPath()
-        ctx.moveTo(self.x1, self.y1)
-        ctx.lineTo(self.x2, self.y2)
-        ctx.strokeStyle = self.fill
-        ctx.lineWidth = self.lineWidth
-        ctx.stroke()
-
-class Label(Shape):
-    def __init__(self, value, centerX, centerY, **kwargs):
-        super().__init__(**kwargs)
-        self._value = value
-        self.centerX = centerX
-        self.centerY = centerY
-        self.bold = kwargs.get('bold', False)
-        self.font = kwargs.get('font', 'sans-serif')
-        self.left = None
-        self.right = None
-    @property
-    def value(self): return self._value
-    @value.setter
-    def value(self, val): self._value = val
-    def draw(self, ctx):
-        if not self.visible: return
-        weight = "bold" if self.bold else "normal"
-        ctx.font = f"{weight} {self.size}px {self.font}"
-        ctx.fillStyle = self.fill
-        ctx.textAlign = "center"
-        ctx.textBaseline = "middle"
-        
-        x = self.centerX
-        if self.left is not None:
-            ctx.textAlign = "left"
-            x = self.left
-        elif self.right is not None:
-            ctx.textAlign = "right"
-            x = self.right
+    function Collatzfunction(n) {
+        if (n > 0) {
+            if (n % 2 === 0) {
+                n = Math.floor(n / 2);
+                app.PS.push(0);
+            } else {
+                n = (n * 3) + 1;
+                app.PS.push(1);
+            }
             
-        ctx.fillText(str(self._value), x, self.centerY)
-    def hits(self, x, y):
-        # Rough bounding box for label clicking actions
-        return self.centerX - 50 <= x <= self.centerX + 50 and self.centerY - 20 <= y <= self.centerY + 20
+            CN.value = n;
+            if (CN.value > SN.value) {
+                SN.value = CN.value;
+            }
+            DNA.value = app.PS.join("");
+            HS.value += 1;
+        }
+    }
 
-class Group:
-    def __init__(self):
-        self.children = []
-        self._visible = True
-    def add(self, *args):
-        for arg in args:
-            if isinstance(arg, tuple) or isinstance(arg, list):
-                self.children.extend(arg)
-            else:
-                self.children.append(arg)
-    @property
-    def visible(self): return self._visible
-    @visible.setter
-    def visible(self, val):
-        self._visible = val
-        for child in self.children:
-            child.visible = val
-    def __iter__(self):
-        return iter(self.children)
+    function ApplyPulse(mg) {
+        for (let obj of sstObjects) {
+            if (obj.size > 30) {
+                obj.x += mg;
+            } else if (obj.size < 30) {
+                obj.x += (mg / 2);
+            }
+        }
+    }
 
-# Engine setup
-canvas = document.createElement('canvas')
-canvas.width = 400
-canvas.height = 400
-document['canvas-container'].appendChild(canvas)
-ctx = canvas.getContext('2d')
+    // --- EVENT LISTENERS ---
 
-# Your original declarations
-WL = Label("Welcome to the Collatz Sandbox!",200,50,bold=True,fill="green",size=20)
-ML = Label("Click the Button to Begin!",200,75,bold=True,fill="blue",size=15)
-B = Rect(100,100,200,200)
-button = Circle(200,200,75,fill="red",border="yellow")
-LW = Label("||||",50,200,size=75,bold=True)
-LE = Label("||||",350,200,size=75,bold=True)
-RW = Line(150,300,150,400,fill="red",lineWidth=4)
-GW = Line(250,300,250,400,fill="green",lineWidth=4)
-BW = Line(200,300,200,400,fill="blue",lineWidth=4)
-Bx = Rect(125,300,150,10,fill="silver")
-L1 = Label("Test.exe",297,255,size=40,fill='white')
-CPR = Label("(C)-CollatzSandbox.com LLCI ''Incorpated''",275,10,fill="white",size=10)
+    canvas.addEventListener('mousedown', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
 
-base = Group()
-sst = Group()
-ss1 = Group()
+        // Button Click Check (Circle detection: distance formula)
+        const dist = Math.sqrt((mouseX - button.cx) ** 2 + (mouseY - button.cy) ** 2);
+        if (dist <= button.r && button.visible && base.visible) {
+            let userInput = prompt("Your Number?");
+            if (userInput !== null && userInput.trim() !== "") {
+                // Check if it's a valid digit string
+                if (/^\d+$/.test(userInput)) {
+                    let val = parseInt(userInput, 10);
+                    if (val > 0) {
+                        app.NV = val;
+                        LN.value = app.NV;
+                        CN.value = app.NV;
+                        SN.value = val;
+                        HS.value = 1;
+                        app.PS = []; // Clear old sequence
+                        
+                        base.visible = false;
+                        sst.visible = true;
+                        ss1.visible = true;
+                        reset.visible = true;
 
-base.add(WL)
-base.add(ML)
-base.add(B)
-base.add(button,LW,LE,RW,GW,BW,Bx)
+                        // Align setup mirroring the python properties
+                        LN.x = 10;
+                        CPR.x = 390;
 
-LN = Label(0,35,25,size=30)
-CN = Label(0,200,75,size=80)
-CNL = Label("Current Number",200,125,size=25)
-SN = Label(0,200,275,size=80,fill="indigo")
-SNL = Label("Summit Number",200,325,size=25,fill="indigo")
-reset = Label("RESET",200,375,fill="red",size=25)
-reset.visible = False
-HS = Label(1,200,175,size=80,fill="white") # Set dynamically but preserving types
-HS.fill = "dodgerBlue"
-HSL = Label("Hailstone Number",200,225,size=25,fill="deepSkyBlue")
-DNA = Label("",200,350,size=12,font="monospace")
+                        app.stepsPerSecond = 1; // Slow down step engine for collatz run
+                        app.paused = false;
+                    }
+                }
+            }
+        }
 
-sst.add(CN,HS,HSL,CNL,SN,SNL,DNA)
-sst.visible = False
-ss1.add(reset,LN,CPR)
-ss1.visible = False
+        // Reset Text Label Click Check (Bounding box approximation)
+        if (reset.visible && ss1.visible) {
+            // "RESET" is approx 75px wide, 25px high centered at (200, 375)
+            if (mouseX >= 160 && mouseX <= 240 && mouseY >= 355 && mouseY <= 390) {
+                base.visible = true;
+                sst.visible = false;
+                ss1.visible = false;
+                reset.visible = false;
+                app.paused = false;
+                HS.value = 1;
+                app.NV = 0;
+                SN.value = 0;
+                DNA.value = "";
+                app.stepsPerSecond = 30;
+            }
+        }
+    });
 
-# All scene elements array for draw pipeline order
-all_elements = [WL, ML, B, button, LW, LE, RW, GW, BW, Bx, L1, CPR, LN, CN, CNL, SN, SNL, reset, HS, HSL, DNA]
+    // --- TIME STEP LOGIC Engine ---
+    let lastStepTime = 0;
 
-def Collatzfunction(n):
-    if n > 0: 
-        if n % 2 == 0:
-            n = n // 2
-            app.PS.append(0)
-        else:
-            n = (n * 3) + 1
-            app.PS.append(1)
-        CN.value = n
-        if CN.value > SN.value:
-            SN.value = CN.value
-        DNA.value = "".join(map(str, app.PS))
-        HS.value += 1
+    function onStep() {
+        if (sst.visible === true) {
+            if (CN.value > 1) {
+                if (HS.value % 2 === 0) {
+                    ApplyPulse(-12);
+                } else {
+                    ApplyPulse(12);
+                }
+                
+                Collatzfunction(CN.value);
+                
+                if (CN.value % 2 === 0) {
+                    CN.fill = "red";
+                    CNL.fill = "red";
+                } else {
+                    CN.fill = "seaGreen";
+                    CNL.fill = "seaGreen";
+                }
+            } else {
+                // Reached 1: snap elements back to normal center alignment
+                for (let obj of sstObjects) {
+                    obj.x = 200;
+                }
+                CN.fill = "orangeRed";
+                CNL.fill = "orangeRed";
+            }
+        }
+    }
 
-def ApplyPulse(mg):
-    for obj in sst:
-        if obj.size > 30:
-            obj.centerX += mg
-        elif obj.size < 30:
-            obj.centerX += (mg / 2)
+    // --- RENDERING CORE ---
+    function drawLabel(obj) {
+        ctx.fillStyle = obj.fill || 'black';
+        ctx.font = `${obj.bold ? 'bold ' : ''}${obj.size || 12}px ${obj.font || 'sans-serif'}`;
+        ctx.textAlign = obj.align || 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(obj.value, obj.x, obj.y);
+    }
 
-def onMousePress(mouseX, mouseY):
-    if button.hits(mouseX, mouseY) and button.visible == True:
-        userInput = app.getTextInput("Your Number?")
-        if userInput != None:
-            if userInput.isdigit():
-                val = int(userInput)
-                if val > 0:
-                    app.NV = val
-                    LN.value = app.NV
-                    CN.value = app.NV
-                    SN.value = val
-                    HS.value = 1
-                    app.PS = []
-                    base.visible = False
-                    sst.visible = True
-                    ss1.visible = True
-                    LN.left = 0
-                    CPR.right = 400
-                    reset.visible = True
-    if reset.hits(mouseX, mouseY) and reset.visible == True:
-        base.visible = True
-        sst.visible = False
-        HS.value = 1
-        app.NV = 0
-        SN.value = 0
-        ss1.visible = False
-        DNA.value = ""
-        reset.visible = False
+    function draw() {
+        // Clear screen canvas container frame
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-def onStep():
-    if sst.visible == True:
-        if CN.value > 1:
-            if HS.value % 2 == 0: 
-                ApplyPulse(-12)
-            else:
-                ApplyPulse(12)
-            
-            Collatzfunction(CN.value)
-            
-            if CN.value % 2 == 0:
-                CN.fill = "red"
-                CNL.fill = "red"
-            elif CN.value % 2 != 0:
-                CN.fill = "seaGreen"
-                CNL.fill = "seaGreen"
-        else:
-            for obj in sst:
-                obj.centerX = 200
-                CN.fill = "orangeRed"
-                CNL.fill = "orangeRed"
+        // Render Base Group
+        if (base.visible) {
+            // Background Square box B
+            ctx.fillStyle = B.fill;
+            ctx.fillRect(B.x, B.y, B.w, B.h);
 
-# Event Hooks
-def mouse_handler(evt):
-    rect = canvas.getBoundingClientRect()
-    x = evt.clientX - rect.left
-    y = evt.clientY - rect.top
-    onMousePress(x, y)
+            // Lines
+            const lines = [RW, GW, BW];
+            lines.forEach(l => {
+                ctx.strokeStyle = l.fill;
+                ctx.lineWidth = l.lineWidth;
+                ctx.beginPath();
+                ctx.moveTo(l.x1, l.y1);
+                ctx.lineTo(l.x2, l.y2);
+                ctx.stroke();
+            });
 
-canvas.bind("mousedown", mouse_handler)
+            // Base plate box Bx
+            ctx.fillStyle = Bx.fill;
+            ctx.fillRect(Bx.x, Bx.y, Bx.w, Bx.h);
 
-# Game/Render loops
-def render_loop():
-    ctx.clearRect(0, 0, 400, 400)
-    ctx.fillStyle = "white"
-    ctx.fillRect(0, 0, 400, 400)
-    for element in all_elements:
-        element.draw(ctx)
+            // Center Button Circle
+            if (button.visible) {
+                ctx.beginPath();
+                ctx.arc(button.cx, button.cy, button.r, 0, Math.PI * 2);
+                ctx.fillStyle = button.fill;
+                ctx.fill();
+                ctx.strokeStyle = button.border;
+                ctx.lineWidth = button.borderWidth;
+                ctx.stroke();
+            }
 
-def step_loop():
-    onStep()
-    render_loop()
+            // Labels
+            drawLabel(WL);
+            drawLabel(ML);
+            drawLabel(LW);
+            drawLabel(LE);
+        }
 
-window.setInterval(step_loop, 1000) # 1 Step Per Second
-window.setInterval(render_loop, 16) # Render Loop 60fps
-    </script>
-</body>
-</html>
+        // Render SST Sequence group
+        if (sst.visible) {
+            drawLabel(CN);
+            drawLabel(CNL);
+            drawLabel(HS);
+            drawLabel(HSL);
+            drawLabel(SN);
+            drawLabel(SNL);
+            drawLabel(DNA);
+        }
+
+        // Render SS1 Global Overlay panel items
+        if (ss1.visible) {
+            drawLabel(LN);
+            drawLabel(CPR);
+            if (reset.visible) {
+                drawLabel(reset);
+            }
+        }
+    }
+
+    // Master App Loop Game Loop Setup
+    function mainLoop(timestamp) {
+        if (!lastStepTime) lastStepTime = timestamp;
+        const elapsed = timestamp - lastStepTime;
+        const stepInterval = 1000 / app.stepsPerSecond;
+
+        if (elapsed >= stepInterval) {
+            if (!app.paused) {
+                onStep();
+            }
+
+                lastStepTime = timestamp;
+                    }
+                    draw();
+
+                    requestAnimationFrame(mainLoop);
+                    }
+                    
+                // Initialize application runtime 
+                looprequestAnimationFrame(mainLoop);
