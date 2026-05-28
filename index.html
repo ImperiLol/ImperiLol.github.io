@@ -9,7 +9,7 @@
             padding: 0;
             overflow: hidden; 
             background-color: #C4BEBB;
-            /* Flexbox centers the iframe horizontally and vertically */
+            /* Flexbox centers content horizontally and vertically */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -29,10 +29,9 @@
 
         iframe {
             display: block;
-            width: 800px;   /* Fixed width to let the gray background show */
-            height: 850px;  /* Fixed height to let the gray background show */
+            width: 100vw;   /* Back to full viewport width */
+            height: 100vh;  /* Back to full viewport height */
             border: none;  
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); /* Adds a subtle shadow effect */
         }
     </style>
 </head>
