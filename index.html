@@ -4,29 +4,42 @@
     <meta charset="UTF-8">
     <title>Collatz Concordia</title>
     <style>
-        /* Reset default margins and padding on the body */
         body {
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Prevents scrollbars from appearing */
-            background-color: #000; /* Optional: adds a background fallback color */
+            overflow: hidden; 
+            background-color: #000;
+            /* Flexbox centers the iframe horizontally and vertically */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
         }
 
-        /* Make the iframe fill the entire viewport */
+        /* Positions the button on top of the iframe so it doesn't ruin the centering */
+        .nav-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            font-size: 16px; 
+            padding: 10px; 
+        }
+
         iframe {
             display: block;
-            width: 100vw;  /* 100% of the viewport width */
-            height: 100vh; /* 100% of the viewport height */
-            border: none;  /* Removes the default iframe border */
+            width: 100vw;  
+            height: 100vh; 
+            border: none;  
         }
     </style>
 </head>
 <body>
-     <a href="rules.html">
-        <button style="font-size: 16px; padding: 10px; margin: 10px;">View Instructions</button>
+     <a href="rules.html" class="nav-button">
+        <button style="font-size: inherit; padding: inherit;">View Instructions</button>
     </a>
 
     <iframe src="https://academy.cs.cmu.edu/sharing/tealHorse218288/embed" allowfullscreen></iframe>
-
 </body>
 </html>
